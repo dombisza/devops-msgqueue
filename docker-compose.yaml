@@ -1,0 +1,32 @@
+version: "3"
+services:
+    nginx:
+        container_name: nginx
+        build: ./deploy/nginx
+        ports:
+            - "80:80"
+    post_api:
+        container_name: post_api
+        build: ./deploy/post_api
+        ports:
+            - "5000:5000"
+    get_api:
+        container_name: get_api
+        build: ./deploy/get_api
+        ports:
+            - "5001:5001"
+    mqueue:
+        container_name: redis
+        build: ./deploy/mqueue
+        ports:
+            - "6379:6379"
+    state:
+        container_name: etcd
+        build: ./deploy/state
+        ports:
+            - "2379:2379"
+    #backend:
+    #    container_name: backend
+    #    build: ./deploy/backend
+    #    ports:
+    #        - "8080:8080"
