@@ -6,8 +6,8 @@ from random import randrange
 import etcd3
 
 def build_task(build_object):
-    s_time = build_object['param3']
-    print("{} {}".format(build_object['param1'], build_object['param2']))
+    s_time = build_object['metadata']['param3']
+    print("{} {}".format(build_object['metadata']['param1'], build_object['metadata']['param2']))
     x = 0
     #for simulation purpose lets make every 5th build failed
     rng = randrange(5)
@@ -29,7 +29,12 @@ def select_task():
     timestamps = r.keys()
     sorted_list = sorted(timestamps, key=int)
     first_obj = r.get(sorted_list[0])
-    return first_obj.decode("utf-8")
+    print(first_obj)
+    if first_obj == None:
+        print(first_obj)
+        return False
+    else:
+        return first_obj.decode("utf-8")
 
 def update_queue(uuid):
     r = redis.Redis('127.0.0.1', port=6379, db=0)
@@ -50,17 +55,16 @@ def main():
         print(uuid)
         json_object = json.loads(r.execute_command('JSON.GET', uuid))
         etcd_client = etcd3.client()
+        print(json_object)
         if build_task(json_object):
             update_queue(uuid)
             etcd_client.put(uuid, 'Success')
+            print("task {} success".format(uuid))
             #add to state
         else:
             #add to state that the build failed
             update_queue(uuid)
             etcd_client.put(uuid, 'Failed')
-            return "build failed"
-
-
-        break
+            print("task {} failed".format(uuid))
 if __name__ == '__main__':
     main()
