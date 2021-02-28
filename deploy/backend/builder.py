@@ -4,6 +4,13 @@ import redis
 import time
 from random import randrange
 import etcd3
+import os
+
+REDIS_HOST = os.environ['REDIS_HOST'] 
+REDIS_PORT = os.environ['REDIS_PORT']
+PAYLOAD_DB = os.environ['PAYLOAD_DB']
+SORT_DB = os.environ['SORT_DB']
+ETCD_HOST = os.environ['ETCD_HOST']
 
 def build_task(build_object):
     s_time = build_object['metadata']['param3']
@@ -25,19 +32,25 @@ def build_task(build_object):
 
 
 def select_task():
-    r = redis.Redis('127.0.0.1', port=6379, db=1)
+    r = redis.Redis(REDIS_HOST, port=REDIS_PORT, db=SORT_DB)
     timestamps = r.keys()
-    sorted_list = sorted(timestamps, key=int)
-    first_obj = r.get(sorted_list[0])
-    print(first_obj)
-    if first_obj == None:
-        print(first_obj)
+    print(timestamps)
+    if timestamps == []:
+        print('No task in queue...')
         return False
     else:
-        return first_obj.decode("utf-8")
+        sorted_list = sorted(timestamps, key=int)
+        first_obj = r.get(sorted_list[0])
+        print(first_obj)
+        if first_obj == None:
+            print(first_obj)
+            return False
+        else:
+            r.delete(sorted_list[0])
+            return first_obj.decode("utf-8")
 
 def update_queue(uuid):
-    r = redis.Redis('127.0.0.1', port=6379, db=0)
+    r = redis.Redis(REDIS_HOST, port=REDIS_PORT, db=PAYLOAD_DB)
     if r.execute_command('JSON.DEL', uuid) == 0:
         print("{} deleted from redis".format(uuid))
         return True
@@ -47,24 +60,22 @@ def update_queue(uuid):
 
 
 def main():
-    redis_host = '127.0.0.1'
-    redis_port = 6379
+    r = redis.Redis(REDIS_HOST, REDIS_PORT, PAYLOAD_DB)
     while True:
-        r = redis.Redis(redis_host, redis_port, db=0)
-        uuid = select_task()
-        print(uuid)
-        json_object = json.loads(r.execute_command('JSON.GET', uuid))
-        etcd_client = etcd3.client()
-        print(json_object)
-        if build_task(json_object):
-            update_queue(uuid)
-            etcd_client.put(uuid, 'Success')
-            print("task {} success".format(uuid))
-            #add to state
-        else:
-            #add to state that the build failed
-            update_queue(uuid)
-            etcd_client.put(uuid, 'Failed')
-            print("task {} failed".format(uuid))
+        uuid = None 
+        if uuid := select_task():
+            print(uuid)
+            json_object = json.loads(r.execute_command('JSON.GET', uuid))
+            etcd_client = etcd3.client(host=ETCD_HOST)
+            print(json_object)
+            if build_task(json_object):
+                update_queue(uuid)
+                etcd_client.put(uuid, 'Success')
+                print("task {} success".format(uuid))
+            else:
+                update_queue(uuid)
+                etcd_client.put(uuid, 'Failed')
+                print("task {} failed".format(uuid))
+        time.sleep(5)
 if __name__ == '__main__':
     main()

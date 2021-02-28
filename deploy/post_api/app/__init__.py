@@ -5,9 +5,14 @@ from flask_caching import Cache
 import requests
 import json
 import redis
+import os
 from jsonschema import validate
 APP = Flask(__name__)
 APP.config.from_pyfile('config.py')
+
+REDIS_HOST = os.environ['REDIS_HOST'] 
+PAYLOAD_DB = os.environ['PAYLOAD_DB']
+SORT_DB = os.environ['SORT_DB']
 
 def validate_body(body):
     j_schema = {"type":"object","properties":{"id":{"type":"string"},"metadata":{"type":"object","properties":{"param1":{"type":"string"},"param2":{"type":"string"},"param3":{"type":"integer"}},"required":["param1","param2","param3"]},"owner":{"type":"string"},"req_time":{"type":"integer"}},"required":["id","metadata","owner","req_time"]}
@@ -21,9 +26,6 @@ def validate_body(body):
 
 @APP.route('/', methods=['POST'])
 def add_job_to_q():
-    REDIS_HOST = 'mqueue'
-    PAYLOAD_DB = 0
-    SORT_DB = 1
     if request.method == 'POST':
         logging.info('post')
         body = request.get_json()
